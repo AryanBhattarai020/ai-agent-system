@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
-const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.2';
+const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'microsoft/DialoGPT-medium';
 
 // Middleware
 app.use(cors());
