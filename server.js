@@ -11,6 +11,7 @@ const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
 const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'gpt2';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 
 // Middleware
 app.use(cors());
@@ -67,6 +68,35 @@ app.post('/api/chat', async (req, res) => {
             aiResponse = n8nResp?.data?.response || n8nResp?.data?.result || '';
             if (!aiResponse) {
                 throw new Error('Empty response from n8n workflow');
+            }
+        } else if (GEMINI_API_KEY) {
+            // Use Google Gemini API
+            try {
+                const geminiResp = await axios.post(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+                    {
+                        contents: [{
+                            parts: [{
+                                text: message
+                            }]
+                        }]
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 30000
+                    }
+                );
+                
+                aiResponse = geminiResp.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                
+                if (!aiResponse) {
+                    throw new Error('Empty response from Gemini');
+                }
+            } catch (geminiError) {
+                console.error('Gemini error:', geminiError.response?.data || geminiError.message);
+                aiResponse = "I'm currently having trouble connecting to the AI service. Please try again in a moment.";
             }
         } else if (HUGGINGFACE_API_KEY) {
             // Use Hugging Face Inference API
@@ -233,7 +263,9 @@ app.listen(PORT, () => {
     console.log(`Frontend available at: http://localhost:${PORT}`);
     console.log(`API available at: http://localhost:${PORT}/api`);
     
-    if (HUGGINGFACE_API_KEY) {
+    if (GEMINI_API_KEY) {
+        console.log('Using Google Gemini API');
+    } else if (HUGGINGFACE_API_KEY) {
         console.log(`Using Hugging Face model: ${HUGGINGFACE_MODEL}`);
     } else if (N8N_WEBHOOK_URL) {
         console.log(`Using n8n workflow: ${N8N_WEBHOOK_URL}`);
