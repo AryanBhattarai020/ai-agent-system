@@ -67,23 +67,28 @@ app.post('/api/chat', async (req, res) => {
                 throw new Error('Empty response from n8n workflow');
             }
         } else {
-            // Fallback: direct call to Ollama
-            const context = conversationHistory
-                .slice(-10)
-                .map(msg => `${msg.role}: ${msg.content}`)
-                .join('\n');
+            // Check if Ollama is available
+            try {
+                const context = conversationHistory
+                    .slice(-10)
+                    .map(msg => `${msg.role}: ${msg.content}`)
+                    .join('\n');
 
-            const ollamaResp = await axios.post(`${OLLAMA_URL}/api/generate`, {
-                model: model,
-                prompt: context + '\nassistant:',
-                stream: false,
-                options: {
-                    temperature: 0.7,
-                    top_p: 0.9,
-                    max_tokens: 1000
-                }
-            });
-            aiResponse = ollamaResp.data.response;
+                const ollamaResp = await axios.post(`${OLLAMA_URL}/api/generate`, {
+                    model: model,
+                    prompt: context + '\nassistant:',
+                    stream: false,
+                    options: {
+                        temperature: 0.7,
+                        top_p: 0.9,
+                        max_tokens: 1000
+                    }
+                }, { timeout: 5000 });
+                aiResponse = ollamaResp.data.response;
+            } catch (ollamaError) {
+                // Ollama not available - return a helpful message
+                aiResponse = "I'm currently running in demo mode without an AI backend. To enable full AI responses, please configure either Ollama or n8n integration. You can find setup instructions in the project README.";
+            }
         }
 
         // Add AI response to history
@@ -111,13 +116,13 @@ app.post('/api/chat', async (req, res) => {
 // Get available models from Ollama
 app.get('/api/models', async (req, res) => {
     try {
-        const response = await axios.get(`${OLLAMA_URL}/api/tags`);
+        const response = await axios.get(`${OLLAMA_URL}/api/tags`, { timeout: 3000 });
         res.json({ models: response.data.models || [] });
     } catch (error) {
         console.error('Error fetching models:', error.message);
-        res.status(500).json({
-            error: 'Failed to fetch available models',
-            details: error.message
+        // Return a default model when Ollama is not available
+        res.json({ 
+            models: [{ name: 'demo-mode', size: 0, modified_at: new Date().toISOString() }] 
         });
     }
 });

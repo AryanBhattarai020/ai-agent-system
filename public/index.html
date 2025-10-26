@@ -295,8 +295,8 @@
     <div id="settingsModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:50;">
         <div style="width:min(520px,92vw);background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;">
             <h2 style="margin:0 0 10px 0;font-size:16px;">Settings</h2>
-            <label for="apiBaseInput" style="display:block;color:var(--muted);font-size:12px;margin-bottom:6px;">API Base URL (e.g. http://192.168.1.10:3000)</label>
-            <input id="apiBaseInput" type="text" placeholder="http://192.168.x.x:3000" 
+            <label for="apiBaseInput" style="display:block;color:var(--muted);font-size:12px;margin-bottom:6px;">API Base URL</label>
+            <input id="apiBaseInput" type="text" placeholder="https://ai-agent-system-cjkj.onrender.com"
                    style="width:100%;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 10px;outline:none;" />
             <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
                 <button id="settingsCancel" class="btn ghost" type="button">Cancel</button>
@@ -318,7 +318,8 @@
         const apiBaseInput = document.getElementById('apiBaseInput');
         const settingsSave = document.getElementById('settingsSave');
         const settingsCancel = document.getElementById('settingsCancel');
-        let API_BASE = (window.location.origin && window.location.origin.startsWith('http')) ? window.location.origin : 'http://localhost:3000';
+        // Default to Render backend URL
+        let API_BASE = 'https://ai-agent-system-cjkj.onrender.com';
         const savedApiBase = localStorage.getItem('apiBase');
         if (savedApiBase) API_BASE = savedApiBase;
 
@@ -350,7 +351,7 @@
                     API_BASE = val;
                     localStorage.setItem('apiBase', val);
                 } else {
-                    API_BASE = (window.location.origin && window.location.origin.startsWith('http')) ? window.location.origin : 'http://localhost:3000';
+                    API_BASE = 'https://ai-agent-system-cjkj.onrender.com';
                     localStorage.removeItem('apiBase');
                 }
                 settingsModal.style.display = 'none';
