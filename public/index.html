@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#0b0f14" />
+    <title>AI Agent</title>
+    <link rel="manifest" href="/manifest.json" />
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --bg-elev: #0f141a;
+            --panel: #11161d;
+            --border: rgba(255,255,255,0.08);
+            --muted: #8a98a8;
+            --text: #dbe4ee;
+            --primary: #4f8cff;
+            --primary-2: #22d3ee;
+            --user: #2a3441;
+            --assistant: #151c24;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --shadow: 0 10px 30px rgba(0,0,0,0.35);
+            --radius: 14px;
+        }
+        [data-theme="light"] {
+            --bg: #f6f7f9;
+            --bg-elev: #ffffff;
+            --panel: #ffffff;
+            --border: rgba(0,0,0,0.08);
+            --muted: #5b6773;
+            --text: #0f1720;
+            --primary: #3b82f6;
+            --primary-2: #06b6d4;
+            --user: #eef2f7;
+            --assistant: #f8fafc;
+            --shadow: 0 8px 24px rgba(16,24,40,0.08);
+        }
+
+        * { box-sizing: border-box; }
+        html, body { 
+            height: 100%; 
+            width: 100%;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            color: var(--text);
+            background:
+                radial-gradient(1200px 800px at 10% -10%, rgba(79,140,255,0.25), transparent 60%),
+                radial-gradient(1000px 600px at 100% 0%, rgba(34,211,238,0.18), transparent 60%),
+                var(--bg);
+            min-height: 100dvh;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            overscroll-behavior: contain;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100dvh;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            overflow-x: hidden;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 12px;
+            padding: 14px clamp(12px, 3vw, 20px);
+            background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.05) 60%, transparent), var(--bg-elev);
+            border-bottom: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            backdrop-filter: saturate(140%) blur(10px);
+        }
+        .brand {
+            display: flex; align-items: center; gap: 12px;
+        }
+        .logo {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: grid; place-items: center; font-weight: 700; letter-spacing: 0.5px;
+            background: conic-gradient(from 120deg, var(--primary), var(--primary-2), var(--primary));
+            color: white;
+        }
+        .titles { display: flex; flex-direction: column; line-height: 1.1; }
+        .titles h1 { font-size: 14px; font-weight: 700; margin: 0; letter-spacing: 0.4px; }
+        .titles span { font-size: 12px; color: var(--muted); }
+
+        .status { justify-self: center; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--success); box-shadow: 0 0 0 0 rgba(34,197,94,0.7); animation: ping 2.4s infinite; }
+        @keyframes ping { 0%{ box-shadow: 0 0 0 0 rgba(34,197,94,0.6);} 70%{ box-shadow: 0 0 0 10px rgba(34,197,94,0);} 100%{ box-shadow: 0 0 0 0 rgba(34,197,94,0);} }
+
+        .actions { justify-self: end; display: inline-flex; gap: 8px; align-items: center; }
+        .select, .btn, .icon-btn {
+            height: 36px; border-radius: 10px; border: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.04));
+            color: var(--text); outline: none; transition: 0.2s ease; font-size: 13px;
+        }
+        .select { padding: 0 10px; min-width: 140px; }
+        .btn { padding: 0 12px; cursor: pointer; }
+        .btn.ghost { background: transparent; }
+        .btn.primary { background: linear-gradient(180deg, rgba(79,140,255,0.25), rgba(34,211,238,0.2)); border-color: rgba(79,140,255,0.35); }
+        .icon-btn { width: 36px; display: grid; place-items: center; cursor: pointer; }
+        .btn:hover, .icon-btn:hover, .select:hover { border-color: rgba(255,255,255,0.18); }
+
+        .chat {
+            display: grid; grid-template-rows: 1fr auto; gap: 0;
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden;
+        }
+        .messages {
+            padding: 18px clamp(12px, 3vw, 20px) 10px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+            background: linear-gradient(180deg, transparent, transparent 70%, rgba(255,255,255,0.02));
+            width: 100%;
+        }
+        .messages::-webkit-scrollbar { width: 10px; }
+        .messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
+
+        .message { 
+            display: grid; 
+            grid-template-columns: 40px 1fr; 
+            gap: 12px; 
+            margin: 8px 0 14px; 
+            align-items: flex-start; 
+            animation: rise 220ms ease-out;
+            max-width: 100%;
+            overflow: hidden;
+        }
+        @keyframes rise { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+        .message.user { grid-template-columns: 1fr 40px; }
+        .message.user .avatar { order: 2; }
+        .message.user .bubble { justify-self: end; background: var(--user); border: 1px solid var(--border); }
+
+        .avatar { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: linear-gradient(140deg, var(--primary), var(--primary-2)); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+        .avatar.user { background: linear-gradient(140deg, #64748b, #334155); }
+
+        .bubble {
+            background: var(--assistant);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px 14px;
+            box-shadow: var(--shadow);
+            max-width: 100%;
+            line-height: 1.6;
+            position: relative;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        .bubble .meta { display: flex; gap: 8px; margin-top: 8px; opacity: 0.65; }
+        .bubble .meta button { height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); padding: 0 10px; cursor: pointer; font-size: 12px; min-width: 60px; }
+        .bubble .meta button:hover, .bubble .meta button:active { color: var(--text); border-color: rgba(255,255,255,0.18); }
+
+        .bubble pre { 
+            margin: 8px 0; 
+            padding: 12px; 
+            background: #0c1116; 
+            border: 1px solid var(--border); 
+            border-radius: 10px; 
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        .bubble code { 
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; 
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        .composer {
+            display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end;
+            padding: 12px clamp(12px, 3vw, 20px) 16px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.04));
+            border-top: 1px solid var(--border);
+            backdrop-filter: blur(6px);
+        }
+        .input {
+            width: 100%; min-height: 44px; max-height: 140px; resize: none; overflow: auto;
+            border-radius: 12px; border: 1px solid var(--border);
+            padding: 12px 14px; background: var(--panel); color: var(--text);
+            outline: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+        }
+        .input:focus { border-color: rgba(79,140,255,0.45); box-shadow: 0 0 0 3px rgba(79,140,255,0.15); }
+        .send { height: 44px; min-width: 90px; border-radius: 10px; border: 1px solid rgba(79,140,255,0.35); background: linear-gradient(180deg, rgba(79,140,255,0.25), rgba(34,211,238,0.2)); color: white; cursor: pointer; font-weight: 700; letter-spacing: 0.3px; }
+        .send:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .error { color: #ef4444; background: rgba(239,68,68,0.12); padding: 10px 12px; border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; margin: 8px 0; }
+
+        .bubble .content,
+        .input {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        @media (max-width: 640px) {
+            body, html { overflow-x: hidden; }
+            .topbar { 
+                grid-template-columns: 1fr auto auto; 
+                gap: 8px; 
+                padding: 12px 12px;
+                overflow-x: hidden;
+            }
+            .brand { min-width: 0; flex-shrink: 1; }
+            .titles { min-width: 0; }
+            .titles h1 { font-size: 13px; }
+            .titles span { display: none; }
+            .status { display: none; }
+            .actions { gap: 6px; }
+            .select { min-width: 90px; max-width: 100px; font-size: 13px; height: 40px; }
+            .btn { padding: 0 8px; font-size: 12px; }
+            .btn, .icon-btn { height: 40px; min-width: 40px; }
+            .messages { padding: 12px 12px 6px; overflow-x: hidden; }
+            .message { 
+                grid-template-columns: 32px 1fr; 
+                gap: 8px;
+                max-width: 100%;
+            }
+            .message.user { grid-template-columns: 1fr 32px; }
+            .avatar { width: 32px; height: 32px; font-size: 11px; flex-shrink: 0; }
+            .bubble { 
+                font-size: 15px; 
+                max-width: calc(100vw - 60px);
+                min-width: 0;
+            }
+            .composer { 
+                grid-template-columns: 1fr auto; 
+                gap: 8px; 
+                padding: 12px 12px 16px;
+                overflow-x: hidden;
+            }
+            .input { min-height: 48px; font-size: 16px; max-width: 100%; }
+            .send { min-width: 70px; height: 48px; font-size: 14px; flex-shrink: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="logo" aria-hidden="true">AI</div>
+                <div class="titles">
+                    <h1>Agent</h1>
+                    <span>Conversational AI</span>
+                </div>
+            </div>
+            <div class="status">
+                <span class="status-dot"></span>
+                <span id="status-text">Online</span>
+            </div>
+            <div class="actions">
+                <select id="modelSelect" class="select" aria-label="Model"></select>
+                <button class="btn ghost" onclick="clearConversation()" title="Clear chat">Clear</button>
+                <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+                <button id="themeToggle" class="icon-btn" title="Toggle theme" aria-label="Toggle theme">☼</button>
+            </div>
+        </header>
+
+        <main class="chat" role="main">
+            <section class="messages" id="messages">
+                <div class="message assistant">
+                    <div class="avatar" aria-hidden="true">AI</div>
+                    <div class="bubble">
+                        <div class="content">Hello! I’m your AI assistant. How can I help today?</div>
+                        <div class="meta"></div>
+                    </div>
+                </div>
+            </section>
+
+            <form class="composer" onsubmit="event.preventDefault(); sendMessage();">
+                <textarea id="messageInput" class="input" placeholder="Ask anything… (Shift+Enter for new line)" rows="1"></textarea>
+                <button id="sendBtn" class="send" type="submit">Send</button>
+            </form>
+        </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:50;">
+        <div style="width:min(520px,92vw);background:var(--bg-elev);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;">
+            <h2 style="margin:0 0 10px 0;font-size:16px;">Settings</h2>
+            <label for="apiBaseInput" style="display:block;color:var(--muted);font-size:12px;margin-bottom:6px;">API Base URL (e.g. http://192.168.1.10:3000)</label>
+            <input id="apiBaseInput" type="text" placeholder="http://192.168.x.x:3000" 
+                   style="width:100%;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 10px;outline:none;" />
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+                <button id="settingsCancel" class="btn ghost" type="button">Cancel</button>
+                <button id="settingsSave" class="btn primary" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isLoading = false;
+        const messagesContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const modelSelect = document.getElementById('modelSelect');
+        const statusText = document.getElementById('status-text');
+        const themeToggle = document.getElementById('themeToggle');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const apiBaseInput = document.getElementById('apiBaseInput');
+        const settingsSave = document.getElementById('settingsSave');
+        const settingsCancel = document.getElementById('settingsCancel');
+        let API_BASE = (window.location.origin && window.location.origin.startsWith('http')) ? window.location.origin : 'http://localhost:3000';
+        const savedApiBase = localStorage.getItem('apiBase');
+        if (savedApiBase) API_BASE = savedApiBase;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Theme init
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+            themeToggle.textContent = document.body.getAttribute('data-theme') === 'light' ? '☾' : '☼';
+            themeToggle.addEventListener('click', () => {
+                const current = document.body.getAttribute('data-theme');
+                const next = current === 'light' ? '' : 'light';
+                if (next) document.body.setAttribute('data-theme', next); else document.body.removeAttribute('data-theme');
+                localStorage.setItem('theme', next);
+                themeToggle.textContent = next === 'light' ? '☾' : '☼';
+            });
+
+            loadAvailableModels();
+            checkSystemHealth();
+
+            // Settings modal wiring
+            settingsBtn.addEventListener('click', () => {
+                apiBaseInput.value = API_BASE || '';
+                settingsModal.style.display = 'flex';
+            });
+            settingsCancel.addEventListener('click', () => settingsModal.style.display = 'none');
+            settingsSave.addEventListener('click', () => {
+                const val = apiBaseInput.value.trim();
+                if (val) {
+                    API_BASE = val;
+                    localStorage.setItem('apiBase', val);
+                } else {
+                    API_BASE = (window.location.origin && window.location.origin.startsWith('http')) ? window.location.origin : 'http://localhost:3000';
+                    localStorage.removeItem('apiBase');
+                }
+                settingsModal.style.display = 'none';
+                checkSystemHealth();
+            });
+
+            messageInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+            });
+
+            messageInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+
+        async function loadAvailableModels() {
+            try {
+                const response = await fetch(`${API_BASE}/api/models`);
+                const data = await response.json();
+                modelSelect.innerHTML = '';
+                if (data.models && data.models.length > 0) {
+                    data.models.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.name;
+                        option.textContent = model.name;
+                        modelSelect.appendChild(option);
+                    });
+                } else {
+                    const opt = document.createElement('option');
+                    opt.value = 'llama2'; opt.textContent = 'llama2';
+                    modelSelect.appendChild(opt);
+                }
+            } catch (error) {
+                const opt = document.createElement('option');
+                opt.value = 'llama2'; opt.textContent = 'llama2';
+                modelSelect.appendChild(opt);
+                console.warn('Could not load models:', error);
+            }
+        }
+
+        async function checkSystemHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/api/health`);
+                const data = await response.json();
+                if (data.status === 'OK') {
+                    statusText.textContent = 'Online';
+                    document.querySelector('.status-dot').style.background = 'var(--success)';
+                } else { throw new Error('System not healthy'); }
+            } catch (error) {
+                statusText.textContent = 'Offline';
+                document.querySelector('.status-dot').style.background = 'var(--danger)';
+            }
+        }
+
+        function renderSimpleMarkdown(text) {
+            // very lightweight markdown: ```code```, `inline`, and paragraphs
+            const esc = (s) => s
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            let html = esc(text);
+            html = html.replace(/```([\s\S]*?)```/g, (m, code) => `<pre><code>${code.trim()}</code></pre>`);
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+            html = html.split(/\n\n+/).map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+            return html;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message || isLoading) return;
+            const selectedModel = modelSelect.value;
+
+            addMessage(message, 'user');
+            messageInput.value = '';
+            messageInput.style.height = 'auto';
+
+            const loadingElement = showLoading();
+            isLoading = true;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending…';
+
+            try {
+                const response = await fetch(`${API_BASE}/api/chat`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, model: selectedModel })
+                });
+                const data = await response.json();
+                hideLoading(loadingElement);
+                if (data.error) {
+                    showError(data.error + (data.details ? `: ${data.details}` : ''));
+                } else {
+                    addMessage(data.response, 'assistant');
+                }
+            } catch (error) {
+                hideLoading(loadingElement);
+                showError(`Connection error: ${error.message}`);
+            } finally {
+                isLoading = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+                messageInput.focus();
+            }
+        }
+
+        function addMessage(content, role) {
+            const row = document.createElement('div');
+            row.className = `message ${role}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${role === 'user' ? 'user' : ''}`;
+            avatar.textContent = role === 'user' ? 'You' : 'AI';
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            const inner = document.createElement('div');
+            inner.className = 'content';
+            if (role === 'assistant') {
+                inner.innerHTML = renderSimpleMarkdown(content);
+            } else {
+                inner.textContent = content;
+            }
+
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.textContent = 'Copy';
+            copyBtn.addEventListener('click', () => copyToClipboard(content));
+            meta.appendChild(copyBtn);
+
+            bubble.appendChild(inner);
+            bubble.appendChild(meta);
+            row.appendChild(avatar);
+            row.appendChild(bubble);
+            messagesContainer.appendChild(row);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showLoading() {
+            const row = document.createElement('div');
+            row.className = 'message assistant';
+            row.innerHTML = `
+                <div class="avatar">AI</div>
+                <div class="bubble">
+                    <div class="content" style="display:flex;align-items:center;gap:10px;">
+                        <span>Thinking</span>
+                        <span class="dots" aria-hidden="true">· · ·</span>
+                    </div>
+                </div>`;
+            messagesContainer.appendChild(row);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return row;
+        }
+
+        function hideLoading(el) { if (el && el.parentNode) el.parentNode.removeChild(el); }
+
+        function showError(message) {
+            const row = document.createElement('div');
+            row.className = 'message assistant';
+            row.innerHTML = `<div class="avatar">AI</div><div class="bubble"><div class="error">Error: ${message}</div></div>`;
+            messagesContainer.appendChild(row);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        async function clearConversation() {
+            if (!confirm('Clear the conversation?')) return;
+            try { await fetch(`${API_BASE}/api/conversation`, { method: 'DELETE' }); } catch {}
+            messagesContainer.innerHTML = `
+                <div class="message assistant">
+                    <div class="avatar">AI</div>
+                    <div class="bubble">
+                        <div class="content">Hello! I’m your AI assistant. How can I help today?</div>
+                        <div class="meta"></div>
+                    </div>
+                </div>`;
+        }
+
+        function copyToClipboard(text) {
+            try { navigator.clipboard.writeText(text); } catch {}
+        }
+
+        setInterval(checkSystemHealth, 30000);
+    </script>
+</body>
+</html>
