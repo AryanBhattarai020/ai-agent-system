@@ -9,6 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
+const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'mistralai/Mistral-7B-Instruct-v0.2';
 
 // Middleware
 app.use(cors());
@@ -66,6 +68,50 @@ app.post('/api/chat', async (req, res) => {
             if (!aiResponse) {
                 throw new Error('Empty response from n8n workflow');
             }
+        } else if (HUGGINGFACE_API_KEY) {
+            // Use Hugging Face Inference API
+            try {
+                const context = conversationHistory
+                    .slice(-10)
+                    .map(msg => `${msg.role}: ${msg.content}`)
+                    .join('\n');
+
+                const hfResp = await axios.post(
+                    `https://api-inference.huggingface.co/models/${HUGGINGFACE_MODEL}`,
+                    {
+                        inputs: context + '\nassistant:',
+                        parameters: {
+                            max_new_tokens: 500,
+                            temperature: 0.7,
+                            top_p: 0.9,
+                            return_full_text: false
+                        }
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        timeout: 30000
+                    }
+                );
+                
+                // Handle different response formats
+                if (Array.isArray(hfResp.data)) {
+                    aiResponse = hfResp.data[0]?.generated_text || hfResp.data[0]?.summary_text || '';
+                } else if (hfResp.data.generated_text) {
+                    aiResponse = hfResp.data.generated_text;
+                } else {
+                    aiResponse = JSON.stringify(hfResp.data);
+                }
+                
+                if (!aiResponse) {
+                    throw new Error('Empty response from Hugging Face');
+                }
+            } catch (hfError) {
+                console.error('Hugging Face error:', hfError.message);
+                aiResponse = "I'm currently having trouble connecting to the AI service. Please try again in a moment.";
+            }
         } else {
             // Check if Ollama is available
             try {
@@ -87,7 +133,7 @@ app.post('/api/chat', async (req, res) => {
                 aiResponse = ollamaResp.data.response;
             } catch (ollamaError) {
                 // Ollama not available - return a helpful message
-                aiResponse = "I'm currently running in demo mode without an AI backend. To enable full AI responses, please configure either Ollama or n8n integration. You can find setup instructions in the project README.";
+                aiResponse = "I'm currently running in demo mode without an AI backend. To enable full AI responses, please configure either Hugging Face, Ollama, or n8n integration.";
             }
         }
 
@@ -186,11 +232,14 @@ app.listen(PORT, () => {
     console.log(`AI Agent System running on port ${PORT}`);
     console.log(`Frontend available at: http://localhost:${PORT}`);
     console.log(`API available at: http://localhost:${PORT}/api`);
-    console.log(`Ollama URL: ${OLLAMA_URL}`);
-    if (N8N_WEBHOOK_URL) {
+    
+    if (HUGGINGFACE_API_KEY) {
+        console.log(`Using Hugging Face model: ${HUGGINGFACE_MODEL}`);
+    } else if (N8N_WEBHOOK_URL) {
         console.log(`Using n8n workflow: ${N8N_WEBHOOK_URL}`);
     } else {
-        console.log('n8n workflow not configured (set N8N_WEBHOOK_URL to enable).');
+        console.log(`Ollama URL: ${OLLAMA_URL}`);
+        console.log('No AI backend configured. Will attempt Ollama or fall back to demo mode.');
     }
 });
 
