@@ -73,13 +73,17 @@ app.post('/api/chat', async (req, res) => {
             // Use Google Gemini API
             try {
                 const geminiResp = await axios.post(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+                    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
                     {
                         contents: [{
                             parts: [{
                                 text: message
                             }]
-                        }]
+                        }],
+                        generationConfig: {
+                            temperature: 0.7,
+                            maxOutputTokens: 500
+                        }
                     },
                     {
                         headers: {
@@ -95,7 +99,7 @@ app.post('/api/chat', async (req, res) => {
                     throw new Error('Empty response from Gemini');
                 }
             } catch (geminiError) {
-                console.error('Gemini error:', geminiError.response?.data || geminiError.message);
+                console.error('Gemini error:', JSON.stringify(geminiError.response?.data) || geminiError.message);
                 aiResponse = "I'm currently having trouble connecting to the AI service. Please try again in a moment.";
             }
         } else if (HUGGINGFACE_API_KEY) {
