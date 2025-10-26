@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
 const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
-const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'microsoft/DialoGPT-medium';
+const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'gpt2';
 
 // Middleware
 app.use(cors());
@@ -71,19 +71,13 @@ app.post('/api/chat', async (req, res) => {
         } else if (HUGGINGFACE_API_KEY) {
             // Use Hugging Face Inference API
             try {
-                const context = conversationHistory
-                    .slice(-10)
-                    .map(msg => `${msg.role}: ${msg.content}`)
-                    .join('\n');
-
                 const hfResp = await axios.post(
                     `https://api-inference.huggingface.co/models/${HUGGINGFACE_MODEL}`,
                     {
-                        inputs: context + '\nassistant:',
+                        inputs: message,
                         parameters: {
-                            max_new_tokens: 500,
-                            temperature: 0.7,
-                            top_p: 0.9,
+                            max_length: 150,
+                            temperature: 0.8,
                             return_full_text: false
                         }
                     },
@@ -96,20 +90,26 @@ app.post('/api/chat', async (req, res) => {
                     }
                 );
                 
+                console.log('HF Response:', JSON.stringify(hfResp.data));
+                
                 // Handle different response formats
-                if (Array.isArray(hfResp.data)) {
-                    aiResponse = hfResp.data[0]?.generated_text || hfResp.data[0]?.summary_text || '';
+                if (Array.isArray(hfResp.data) && hfResp.data.length > 0) {
+                    aiResponse = hfResp.data[0]?.generated_text || '';
+                    // Remove the input prompt from response if present
+                    if (aiResponse.startsWith(message)) {
+                        aiResponse = aiResponse.substring(message.length).trim();
+                    }
                 } else if (hfResp.data.generated_text) {
                     aiResponse = hfResp.data.generated_text;
-                } else {
-                    aiResponse = JSON.stringify(hfResp.data);
+                } else if (hfResp.data.error) {
+                    throw new Error(hfResp.data.error);
                 }
                 
                 if (!aiResponse) {
                     throw new Error('Empty response from Hugging Face');
                 }
             } catch (hfError) {
-                console.error('Hugging Face error:', hfError.message);
+                console.error('Hugging Face error:', hfError.response?.data || hfError.message);
                 aiResponse = "I'm currently having trouble connecting to the AI service. Please try again in a moment.";
             }
         } else {
