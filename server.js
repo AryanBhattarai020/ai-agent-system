@@ -73,7 +73,7 @@ app.post('/api/chat', async (req, res) => {
             // Use Google Gemini API
             try {
                 const geminiResp = await axios.post(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+                    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
                     {
                         contents: [{
                             parts: [{
