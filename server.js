@@ -12,6 +12,7 @@ const N8N_WEBHOOK_URL = process.env.N8N_WEBHOOK_URL || '';
 const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
 const HUGGINGFACE_MODEL = process.env.HUGGINGFACE_MODEL || 'gpt2';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 
 // Middleware
 app.use(cors());
@@ -68,6 +69,40 @@ app.post('/api/chat', async (req, res) => {
             aiResponse = n8nResp?.data?.response || n8nResp?.data?.result || '';
             if (!aiResponse) {
                 throw new Error('Empty response from n8n workflow');
+            }
+        } else if (OPENROUTER_API_KEY) {
+            // Use OpenRouter API (provides free access to multiple models)
+            try {
+                const orResp = await axios.post(
+                    'https://openrouter.ai/api/v1/chat/completions',
+                    {
+                        model: 'meta-llama/llama-3.2-3b-instruct:free',
+                        messages: [
+                            {
+                                role: 'user',
+                                content: message
+                            }
+                        ]
+                    },
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': 'https://ai-agent-system.onrender.com',
+                            'X-Title': 'AI Agent System'
+                        },
+                        timeout: 30000
+                    }
+                );
+                
+                aiResponse = orResp.data?.choices?.[0]?.message?.content || '';
+                
+                if (!aiResponse) {
+                    throw new Error('Empty response from OpenRouter');
+                }
+            } catch (orError) {
+                console.error('OpenRouter error:', JSON.stringify(orError.response?.data) || orError.message);
+                aiResponse = "I'm currently having trouble connecting to the AI service. Please try again in a moment.";
             }
         } else if (GEMINI_API_KEY) {
             // Use Google Gemini API
@@ -267,7 +302,9 @@ app.listen(PORT, () => {
     console.log(`Frontend available at: http://localhost:${PORT}`);
     console.log(`API available at: http://localhost:${PORT}/api`);
     
-    if (GEMINI_API_KEY) {
+    if (OPENROUTER_API_KEY) {
+        console.log('Using OpenRouter API (Free Llama 3.2)');
+    } else if (GEMINI_API_KEY) {
         console.log('Using Google Gemini API');
     } else if (HUGGINGFACE_API_KEY) {
         console.log(`Using Hugging Face model: ${HUGGINGFACE_MODEL}`);
